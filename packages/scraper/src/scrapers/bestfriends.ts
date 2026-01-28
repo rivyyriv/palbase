@@ -157,53 +157,54 @@ export class BestFriendsScraper extends BaseScraper {
       // Wait for content to load
       await page.waitForSelector('h1, [class*="pet-name"], [class*="animal-name"]', { timeout: 10000 }).catch(() => {});
 
-      const petData = await page.evaluate(() => {
+      const petData = await page.evaluate(function() {
         // Helper to get text content safely
-        const getText = (selectors: string): string => {
-          for (const selector of selectors.split(',')) {
-            const el = document.querySelector(selector.trim());
-            if (el?.textContent?.trim()) {
+        function getText(selectors) {
+          var parts = selectors.split(',');
+          for (var i = 0; i < parts.length; i++) {
+            var el = document.querySelector(parts[i].trim());
+            if (el && el.textContent && el.textContent.trim()) {
               return el.textContent.trim();
             }
           }
           return '';
-        };
+        }
 
         // Get the name from page title or headers
-        const name = getText('h1, .pet-name, .animal-name, [class*="pet-name"], [class*="animal-name"]');
+        var name = getText('h1, .pet-name, .animal-name, [class*="pet-name"], [class*="animal-name"]');
 
         // Get all images
-        const photos: string[] = [];
-        document.querySelectorAll('img').forEach((img) => {
-          const src = (img as HTMLImageElement).src || (img as HTMLImageElement).dataset.src;
+        var photos = [];
+        document.querySelectorAll('img').forEach(function(img) {
+          var src = img.src || img.dataset.src;
           if (src && (src.includes('animal') || src.includes('pet') || src.includes('adopt'))) {
             photos.push(src);
           }
         });
 
         // Try to find pet details from the page
-        const pageText = document.body.innerText;
+        var pageText = document.body.innerText;
         
         // Extract species from page content
-        let speciesText = '';
-        const speciesPatterns = ['Dog', 'Cat', 'Rabbit', 'Bird', 'Horse', 'Pig', 'Goat', 'Guinea Pig', 'Hamster', 'Turtle', 'Snake', 'Lizard'];
-        for (const pattern of speciesPatterns) {
-          if (pageText.toLowerCase().includes(pattern.toLowerCase())) {
-            speciesText = pattern;
+        var speciesText = '';
+        var speciesPatterns = ['Dog', 'Cat', 'Rabbit', 'Bird', 'Horse', 'Pig', 'Goat', 'Guinea Pig', 'Hamster', 'Turtle', 'Snake', 'Lizard'];
+        for (var i = 0; i < speciesPatterns.length; i++) {
+          if (pageText.toLowerCase().includes(speciesPatterns[i].toLowerCase())) {
+            speciesText = speciesPatterns[i];
             break;
           }
         }
 
         // Extract breed - look for breed-related text
-        let breed = '';
-        const breedMatch = pageText.match(/(?:Breed|Looks like)[:\s]+([A-Za-z\s,]+?)(?:\n|$|\.)/i);
+        var breed = '';
+        var breedMatch = pageText.match(/(?:Breed|Looks like)[:\s]+([A-Za-z\s,]+?)(?:\n|$|\.)/i);
         if (breedMatch) {
           breed = breedMatch[1].trim();
         }
 
         // Extract age
-        let age = '';
-        const ageMatch = pageText.match(/(?:Age|Years?|Months?)[:\s]*(\d+\s*(?:years?|months?|yrs?|mos?)|\w+)/i);
+        var age = '';
+        var ageMatch = pageText.match(/(?:Age|Years?|Months?)[:\s]*(\d+\s*(?:years?|months?|yrs?|mos?)|\w+)/i);
         if (ageMatch) {
           age = ageMatch[1].trim();
         }
@@ -214,38 +215,38 @@ export class BestFriendsScraper extends BaseScraper {
         if (pageText.includes('Senior')) age = age || 'Senior';
 
         // Extract size
-        let size = '';
+        var size = '';
         if (pageText.includes('X-Large') || pageText.includes('Extra Large')) size = 'X-Large';
         else if (pageText.includes('Large')) size = 'Large';
         else if (pageText.includes('Medium')) size = 'Medium';
         else if (pageText.includes('Small')) size = 'Small';
 
         // Extract gender
-        let gender = '';
+        var gender = '';
         if (pageText.includes('Female')) gender = 'Female';
         else if (pageText.includes('Male')) gender = 'Male';
 
         // Extract color
-        let color = '';
-        const colorMatch = pageText.match(/(?:Color|Coat)[:\s]+([A-Za-z\s,/]+?)(?:\n|$|\.)/i);
+        var color = '';
+        var colorMatch = pageText.match(/(?:Color|Coat)[:\s]+([A-Za-z\s,/]+?)(?:\n|$|\.)/i);
         if (colorMatch) {
           color = colorMatch[1].trim();
         }
 
         // Extract description
-        const descriptionEl = document.querySelector('[class*="description"], [class*="bio"], [class*="about"], .body-text, article p');
-        const description = descriptionEl?.textContent?.trim() || '';
+        var descriptionEl = document.querySelector('[class*="description"], [class*="bio"], [class*="about"], .body-text, article p');
+        var description = descriptionEl && descriptionEl.textContent ? descriptionEl.textContent.trim() : '';
 
         return {
-          name,
-          speciesText,
-          breed,
-          age,
-          size,
-          gender,
-          color,
-          description,
-          photos,
+          name: name,
+          speciesText: speciesText,
+          breed: breed,
+          age: age,
+          size: size,
+          gender: gender,
+          color: color,
+          description: description,
+          photos: photos,
         };
       });
 

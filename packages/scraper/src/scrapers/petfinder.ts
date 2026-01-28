@@ -86,54 +86,46 @@ export class PetfinderScraper extends BaseScraper {
         }).catch(() => {});
 
         // Extract pet data from the page
-        const petData = await page.evaluate(() => {
-          const results: Array<{
-            url: string;
-            name: string;
-            breed: string;
-            age: string;
-            gender: string;
-            location: string;
-            photo: string;
-          }> = [];
+        const petData = await page.evaluate(function() {
+          var results = [];
 
           // Try multiple selectors for pet cards
-          const cards = document.querySelectorAll('[data-test="petCard"], .petCard, [class*="AnimalCard"], article[class*="pet"]');
+          var cards = document.querySelectorAll('[data-test="petCard"], .petCard, [class*="AnimalCard"], article[class*="pet"]');
           
-          cards.forEach((card) => {
-            const link = card.querySelector('a[href*="/pet/"]') as HTMLAnchorElement | null;
+          cards.forEach(function(card) {
+            var link = card.querySelector('a[href*="/pet/"]');
             if (!link) return;
 
-            const url = link.href;
+            var url = (link as any).href;
             
             // Get pet name
-            const nameEl = card.querySelector('[data-test="petCard-name"], h2, h3, [class*="name"]');
-            const name = nameEl?.textContent?.trim() || '';
+            var nameEl = card.querySelector('[data-test="petCard-name"], h2, h3, [class*="name"]');
+            var name = nameEl && nameEl.textContent ? nameEl.textContent.trim() : '';
 
             // Get breed
-            const breedEl = card.querySelector('[data-test="petCard-breeds"], [class*="breed"]');
-            const breed = breedEl?.textContent?.trim() || '';
+            var breedEl = card.querySelector('[data-test="petCard-breeds"], [class*="breed"]');
+            var breed = breedEl && breedEl.textContent ? breedEl.textContent.trim() : '';
 
             // Get age
-            const ageEl = card.querySelector('[data-test="petCard-age"], [class*="age"]');
-            const age = ageEl?.textContent?.trim() || '';
+            var ageEl = card.querySelector('[data-test="petCard-age"], [class*="age"]');
+            var age = ageEl && ageEl.textContent ? ageEl.textContent.trim() : '';
 
             // Get gender (might be in details text)
-            const detailsText = card.textContent || '';
-            let gender = '';
+            var detailsText = card.textContent || '';
+            var gender = '';
             if (detailsText.includes('Female')) gender = 'Female';
             else if (detailsText.includes('Male')) gender = 'Male';
 
             // Get location
-            const locationEl = card.querySelector('[data-test="petCard-location"], [class*="location"]');
-            const location = locationEl?.textContent?.trim() || '';
+            var locationEl = card.querySelector('[data-test="petCard-location"], [class*="location"]');
+            var location = locationEl && locationEl.textContent ? locationEl.textContent.trim() : '';
 
             // Get photo
-            const imgEl = card.querySelector('img') as HTMLImageElement | null;
-            const photo = imgEl?.src || imgEl?.dataset?.src || '';
+            var imgEl = card.querySelector('img');
+            var photo = imgEl ? (imgEl.src || imgEl.dataset.src || '') : '';
 
             if (url && name) {
-              results.push({ url, name, breed, age, gender, location, photo });
+              results.push({ url: url, name: name, breed: breed, age: age, gender: gender, location: location, photo: photo });
             }
           });
 
@@ -192,8 +184,8 @@ export class PetfinderScraper extends BaseScraper {
         }
 
         // Check for next page
-        const hasNextPage = await page.evaluate(() => {
-          const nextBtn = document.querySelector('[data-test="pagination-next"]:not([disabled]), a[aria-label="Next"]');
+        const hasNextPage = await page.evaluate(function() {
+          var nextBtn = document.querySelector('[data-test="pagination-next"]:not([disabled]), a[aria-label="Next"]');
           return !!nextBtn;
         });
 
@@ -234,50 +226,51 @@ export class PetfinderScraper extends BaseScraper {
       const sourceIdMatch = url.match(/\/pet\/[^/]+-(\d+)/);
       const sourceId = sourceIdMatch ? sourceIdMatch[1] : `pf-${Date.now()}`;
 
-      const petData = await page.evaluate(() => {
-        const getText = (selectors: string): string => {
-          for (const selector of selectors.split(',')) {
-            const el = document.querySelector(selector.trim());
-            if (el?.textContent?.trim()) {
+      const petData = await page.evaluate(function() {
+        function getText(selectors) {
+          var parts = selectors.split(',');
+          for (var i = 0; i < parts.length; i++) {
+            var el = document.querySelector(parts[i].trim());
+            if (el && el.textContent && el.textContent.trim()) {
               return el.textContent.trim();
             }
           }
           return '';
-        };
+        }
 
-        const name = getText('[data-test="pet-name"], h1, [class*="petName"]');
-        const breed = getText('[data-test="pet-breed"], [class*="breed"]');
-        const age = getText('[data-test="pet-age"], [class*="age"]');
-        const size = getText('[data-test="pet-size"], [class*="size"]');
-        const gender = getText('[data-test="pet-gender"], [class*="gender"]');
-        const speciesText = getText('[data-test="pet-type"], [class*="species"]');
-        const description = getText('[data-test="pet-description"], [class*="description"], [class*="story"]');
-        const location = getText('[data-test="pet-location"], [class*="location"]');
-        const shelterName = getText('[data-test="organization-name"], [class*="organizationName"], [class*="shelter"]');
+        var name = getText('[data-test="pet-name"], h1, [class*="petName"]');
+        var breed = getText('[data-test="pet-breed"], [class*="breed"]');
+        var age = getText('[data-test="pet-age"], [class*="age"]');
+        var size = getText('[data-test="pet-size"], [class*="size"]');
+        var gender = getText('[data-test="pet-gender"], [class*="gender"]');
+        var speciesText = getText('[data-test="pet-type"], [class*="species"]');
+        var description = getText('[data-test="pet-description"], [class*="description"], [class*="story"]');
+        var location = getText('[data-test="pet-location"], [class*="location"]');
+        var shelterName = getText('[data-test="organization-name"], [class*="organizationName"], [class*="shelter"]');
 
         // Get photos
-        const photos: string[] = [];
-        document.querySelectorAll('[data-test="pet-photo"] img, [class*="petPhoto"] img, [class*="gallery"] img').forEach((img) => {
-          const src = (img as HTMLImageElement).src;
+        var photos = [];
+        document.querySelectorAll('[data-test="pet-photo"] img, [class*="petPhoto"] img, [class*="gallery"] img').forEach(function(img) {
+          var src = (img as any).src;
           if (src && !src.includes('placeholder')) {
             photos.push(src);
           }
         });
 
         // Check attributes
-        const pageText = document.body.textContent?.toLowerCase() || '';
+        var pageText = document.body.textContent ? document.body.textContent.toLowerCase() : '';
 
         return {
-          name,
-          breed,
-          age,
-          size,
-          gender,
-          speciesText,
-          description,
-          location,
-          shelterName,
-          photos,
+          name: name,
+          breed: breed,
+          age: age,
+          size: size,
+          gender: gender,
+          speciesText: speciesText,
+          description: description,
+          location: location,
+          shelterName: shelterName,
+          photos: photos,
           goodWithKids: pageText.includes('good with children') || pageText.includes('kids'),
           goodWithDogs: pageText.includes('good with dogs'),
           goodWithCats: pageText.includes('good with cats'),

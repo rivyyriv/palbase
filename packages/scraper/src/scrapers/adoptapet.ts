@@ -95,55 +95,47 @@ export class AdoptAPetScraper extends BaseScraper {
       const maxScrollAttempts = 5;
 
       while (scrollAttempts < maxScrollAttempts) {
-        const currentHeight = await page.evaluate(() => document.body.scrollHeight);
+        const currentHeight = await page.evaluate(function() { return document.body.scrollHeight; });
 
         if (currentHeight === previousHeight) {
           break;
         }
 
         previousHeight = currentHeight;
-        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.evaluate(function() { window.scrollTo(0, document.body.scrollHeight); });
         await new Promise(r => setTimeout(r, 1500));
         scrollAttempts++;
       }
 
       // Extract pet data from the page
-      const petData = await page.evaluate(() => {
-        const results: Array<{
-          url: string;
-          name: string;
-          breed: string;
-          age: string;
-          gender: string;
-          size: string;
-          photo: string;
-        }> = [];
+      const petData = await page.evaluate(function() {
+        var results = [];
 
         // Find all pet links
-        const petLinks = document.querySelectorAll('a[href*="/pet/"]');
+        var petLinks = document.querySelectorAll('a[href*="/pet/"]');
 
-        petLinks.forEach((link) => {
-          const href = (link as HTMLAnchorElement).href;
-          if (!href || results.some((r) => r.url === href)) return;
+        petLinks.forEach(function(link) {
+          var href = (link as any).href;
+          if (!href || results.some(function(r) { return r.url === href; })) return;
 
           // Find the card container
-          const card = link.closest('[class*="pet"], [class*="card"], article') || link.parentElement;
+          var card = link.closest('[class*="pet"], [class*="card"], article') || link.parentElement;
           if (!card) return;
 
           // Get pet name from various possible locations
-          const nameEl = card.querySelector('h2, h3, [class*="name"], [class*="title"]');
-          const name = nameEl?.textContent?.trim() || '';
+          var nameEl = card.querySelector('h2, h3, [class*="name"], [class*="title"]');
+          var name = nameEl && nameEl.textContent ? nameEl.textContent.trim() : '';
 
           // Get breed
-          const breedEl = card.querySelector('[class*="breed"]');
-          const breed = breedEl?.textContent?.trim() || '';
+          var breedEl = card.querySelector('[class*="breed"]');
+          var breed = breedEl && breedEl.textContent ? breedEl.textContent.trim() : '';
 
           // Get details text
-          const cardText = card.textContent || '';
+          var cardText = card.textContent || '';
 
           // Extract age
-          let age = '';
-          const ageMatch = cardText.match(/(\d+)\s*(year|yr|month|mo|week|wk)/i);
+          var age = '';
+          var ageMatch = cardText.match(/(\d+)\s*(year|yr|month|mo|week|wk)/i);
           if (ageMatch) {
             age = ageMatch[0];
           } else if (cardText.includes('Puppy') || cardText.includes('Kitten')) {
@@ -157,23 +149,23 @@ export class AdoptAPetScraper extends BaseScraper {
           }
 
           // Extract gender
-          let gender = '';
+          var gender = '';
           if (cardText.includes('Female')) gender = 'Female';
           else if (cardText.includes('Male')) gender = 'Male';
 
           // Extract size
-          let size = '';
+          var size = '';
           if (cardText.includes('Extra Large') || cardText.includes('XL')) size = 'X-Large';
           else if (cardText.includes('Large')) size = 'Large';
           else if (cardText.includes('Medium')) size = 'Medium';
           else if (cardText.includes('Small')) size = 'Small';
 
           // Get photo
-          const img = card.querySelector('img') as HTMLImageElement | null;
-          const photo = img?.src || img?.dataset?.src || '';
+          var img = card.querySelector('img');
+          var photo = img ? (img.src || img.dataset.src || '') : '';
 
           if (href && name) {
-            results.push({ url: href, name, breed, age, gender, size, photo });
+            results.push({ url: href, name: name, breed: breed, age: age, gender: gender, size: size, photo: photo });
           }
         });
 
@@ -251,30 +243,31 @@ export class AdoptAPetScraper extends BaseScraper {
       const sourceIdMatch = url.match(/\/pet\/(\d+)/);
       const sourceId = sourceIdMatch ? sourceIdMatch[1] : `aap-${Date.now()}`;
 
-      const petData = await page.evaluate(() => {
-        const getText = (selectors: string): string => {
-          for (const selector of selectors.split(',')) {
-            const el = document.querySelector(selector.trim());
-            if (el?.textContent?.trim()) {
+      const petData = await page.evaluate(function() {
+        function getText(selectors) {
+          var parts = selectors.split(',');
+          for (var i = 0; i < parts.length; i++) {
+            var el = document.querySelector(parts[i].trim());
+            if (el && el.textContent && el.textContent.trim()) {
               return el.textContent.trim();
             }
           }
           return '';
-        };
+        }
 
-        const name = getText('h1, [class*="petName"], [class*="name"]');
-        const breed = getText('[class*="breed"]');
-        const description = getText('[class*="description"], [class*="about"], [class*="bio"]');
-        const shelterName = getText('[class*="shelter"], [class*="organization"]');
-        const location = getText('[class*="location"]');
+        var name = getText('h1, [class*="petName"], [class*="name"]');
+        var breed = getText('[class*="breed"]');
+        var description = getText('[class*="description"], [class*="about"], [class*="bio"]');
+        var shelterName = getText('[class*="shelter"], [class*="organization"]');
+        var location = getText('[class*="location"]');
 
-        const pageText = document.body.textContent?.toLowerCase() || '';
+        var pageText = document.body.textContent ? document.body.textContent.toLowerCase() : '';
 
         // Extract structured info
-        let age = '';
-        let gender = '';
-        let size = '';
-        let speciesText = '';
+        var age = '';
+        var gender = '';
+        var size = '';
+        var speciesText = '';
 
         if (pageText.includes('puppy') || pageText.includes('kitten')) age = 'Baby';
         else if (pageText.includes('young')) age = 'Young';
@@ -293,25 +286,25 @@ export class AdoptAPetScraper extends BaseScraper {
         else if (pageText.includes('cat')) speciesText = 'Cat';
 
         // Get photos
-        const photos: string[] = [];
-        document.querySelectorAll('[class*="photo"] img, [class*="gallery"] img, [class*="image"] img').forEach((img) => {
-          const src = (img as HTMLImageElement).src;
+        var photos = [];
+        document.querySelectorAll('[class*="photo"] img, [class*="gallery"] img, [class*="image"] img').forEach(function(img) {
+          var src = (img as any).src;
           if (src && !src.includes('placeholder') && !src.includes('logo')) {
             photos.push(src);
           }
         });
 
         return {
-          name,
-          breed,
-          description,
-          shelterName,
-          location,
-          age,
-          gender,
-          size,
-          speciesText,
-          photos,
+          name: name,
+          breed: breed,
+          description: description,
+          shelterName: shelterName,
+          location: location,
+          age: age,
+          gender: gender,
+          size: size,
+          speciesText: speciesText,
+          photos: photos,
           goodWithKids: pageText.includes('good with kids') || pageText.includes('good with children'),
           goodWithDogs: pageText.includes('good with dogs'),
           goodWithCats: pageText.includes('good with cats'),
