@@ -1,5 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_ADMIN_URL",
+    "NEXT_PUBLIC_SCRAPER_URL",
+    "EXPO_PUBLIC_SUPABASE_URL",
+    "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+    "REDIS_URL",
+    "SCRAPER_CRON_SCHEDULE",
+    "SCRAPER_RATE_LIMIT_MIN_MS",
+    "SCRAPER_RATE_LIMIT_MAX_MS"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
