@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { formatDate } from '@palbase/shared';
 import type { User } from '@palbase/shared';
@@ -39,9 +40,11 @@ export default async function UsersPage() {
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
                           {user.avatar_url ? (
-                            <img
+                            <Image
                               src={user.avatar_url}
                               alt=""
+                              width={40}
+                              height={40}
                               className="h-10 w-10 rounded-full object-cover"
                             />
                           ) : (
