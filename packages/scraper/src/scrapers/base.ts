@@ -31,15 +31,19 @@ export abstract class BaseScraper {
    * Initialize the scraper (browser, robots.txt, etc.)
    */
   async initialize(): Promise<void> {
-    // Launch browser
+    // Launch browser - use PUPPETEER_EXECUTABLE_PATH if set (Railway/Docker)
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    
     this.browser = await puppeteer.launch({
       headless: true,
+      ...(executablePath && { executablePath }),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--disable-gpu',
+        '--single-process',
       ],
     });
 

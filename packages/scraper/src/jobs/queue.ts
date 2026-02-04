@@ -37,8 +37,13 @@ let scrapeWorker: Worker<ScrapeJobData, ScrapeJobResult> | null = null;
 
 function getConnection(): IORedis {
   if (!connection) {
-    connection = new IORedis(config.redis.url, {
+    const redisUrl = config.redis.url;
+    const isUpstash = redisUrl.startsWith('rediss://');
+    
+    connection = new IORedis(redisUrl, {
       maxRetriesPerRequest: null,
+      // Upstash requires TLS
+      ...(isUpstash && { tls: { rejectUnauthorized: false } }),
     });
   }
   return connection;
