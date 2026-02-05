@@ -33,6 +33,7 @@ USER pptruser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
 
-EXPOSE 4000
+# Railway sets PORT dynamically
+EXPOSE ${PORT:-4000}
 
 CMD ["node", "packages/scraper/dist/index.js"]

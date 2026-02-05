@@ -35,8 +35,8 @@ export const config = {
     staleHours: parseInt(process.env.SCRAPER_STALE_HOURS || '48', 10),
   },
 
-  // Server
-  port: parseInt(process.env.SCRAPER_PORT || '4000', 10),
+  // Server - Railway provides PORT env var
+  port: parseInt(process.env.PORT || process.env.SCRAPER_PORT || '4000', 10),
 };
 
 export function validateConfig(): void {
