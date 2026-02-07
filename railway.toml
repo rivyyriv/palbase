@@ -5,3 +5,4 @@ builder = "railpack"
 startCommand = "node packages/scraper/dist/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
+
