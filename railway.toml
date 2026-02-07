@@ -3,6 +3,7 @@ builder = "railpack"
 
 [deploy]
 startCommand = "node packages/scraper/dist/index.js"
-healthcheckPath = "/health"
-healthcheckTimeout = 30
+# Temporarily disabled healthcheck to debug startup
+# healthcheckPath = "/health"
+# healthcheckTimeout = 30
 
