@@ -80,57 +80,112 @@ export class PetfinderScraper extends BaseScraper {
           timeout: 60000,
         });
 
-        // Wait for pet cards to load
-        await page.waitForSelector('[data-test="petCard"], .petCard, [class*="AnimalCard"]', { 
-          timeout: 15000 
-        }).catch(() => {});
+        // Wait for skeleton loaders to disappear and real content to appear
+        // The site uses tw-animate-pulse class for loading skeletons
+        console.log('Waiting for page content to load...');
+        
+        // Wait up to 30 seconds for actual pet data to load
+        await page.waitForFunction(
+          () => {
+            // Check if there are links to pet profiles (real data)
+            const petLinks = document.querySelectorAll('a[href*="/pet/"]');
+            // Check if skeletons are still visible
+            const skeletons = document.querySelectorAll('.tw-animate-pulse');
+            // We want pet links and minimal skeletons
+            return petLinks.length > 0 && skeletons.length < 5;
+          },
+          { timeout: 30000 }
+        ).catch(() => {
+          console.log('Timeout waiting for content, trying to extract anyway...');
+        });
+
+        // Additional wait for any final renders
+        await this.sleep(2000);
 
         // Extract pet data from the page
         const petData = await page.evaluate(function() {
           var results = [];
 
-          // Try multiple selectors for pet cards
-          var cards = document.querySelectorAll('[data-test="petCard"], .petCard, [class*="AnimalCard"], article[class*="pet"]');
+          // Find all links to pet profiles - this is the most reliable selector
+          var petLinks = document.querySelectorAll('a[href*="/pet/"]');
+          var processedUrls = new Set();
           
-          cards.forEach(function(card) {
-            var link = card.querySelector('a[href*="/pet/"]');
-            if (!link) return;
-
+          petLinks.forEach(function(link) {
             var url = (link as any).href;
             
-            // Get pet name
-            var nameEl = card.querySelector('[data-test="petCard-name"], h2, h3, [class*="name"]');
-            var name = nameEl && nameEl.textContent ? nameEl.textContent.trim() : '';
+            // Skip if we've already processed this pet
+            if (processedUrls.has(url)) return;
+            processedUrls.add(url);
+            
+            // The card is usually the parent container of the link
+            var card = link.closest('[class*="tw-rounded-lg"]') || link.closest('[class*="overflow-hidden"]') || link.parentElement?.parentElement;
+            if (!card) return;
 
-            // Get breed
-            var breedEl = card.querySelector('[data-test="petCard-breeds"], [class*="breed"]');
-            var breed = breedEl && breedEl.textContent ? breedEl.textContent.trim() : '';
+            // Get pet name - usually in a prominent text element
+            var name = '';
+            var nameEl = card.querySelector('[class*="font-secondary"], [class*="font-bold"]');
+            if (nameEl && nameEl.textContent) {
+              name = nameEl.textContent.trim();
+            }
+            // Fallback: look for text that's NOT "View Profile" or "Fast Facts"
+            if (!name) {
+              var allText = card.querySelectorAll('span, div');
+              for (var i = 0; i < allText.length; i++) {
+                var t = allText[i].textContent?.trim() || '';
+                if (t && t.length > 1 && t.length < 30 && 
+                    !t.includes('VIEW') && !t.includes('FAST') && 
+                    !t.includes('mile') && !t.includes('•')) {
+                  name = t;
+                  break;
+                }
+              }
+            }
+
+            // Get all text content for parsing
+            var cardText = card.textContent || '';
+
+            // Get breed - usually after age/gender line
+            var breed = '';
+            var breedMatch = cardText.match(/(?:Adult|Young|Senior|Baby|Puppy|Kitten)\s*•\s*(?:Male|Female)\s*\n?\s*([A-Za-z\s&]+(?:Breed|Mix)?)/i);
+            if (breedMatch) {
+              breed = breedMatch[1].trim();
+            }
 
             // Get age
-            var ageEl = card.querySelector('[data-test="petCard-age"], [class*="age"]');
-            var age = ageEl && ageEl.textContent ? ageEl.textContent.trim() : '';
+            var age = '';
+            if (cardText.includes('Adult')) age = 'Adult';
+            else if (cardText.includes('Young')) age = 'Young';
+            else if (cardText.includes('Senior')) age = 'Senior';
+            else if (cardText.includes('Baby') || cardText.includes('Puppy') || cardText.includes('Kitten')) age = 'Baby';
 
-            // Get gender (might be in details text)
-            var detailsText = card.textContent || '';
+            // Get gender
             var gender = '';
-            if (detailsText.includes('Female')) gender = 'Female';
-            else if (detailsText.includes('Male')) gender = 'Male';
+            if (cardText.includes('Female')) gender = 'Female';
+            else if (cardText.includes('Male')) gender = 'Male';
 
-            // Get location
-            var locationEl = card.querySelector('[data-test="petCard-location"], [class*="location"]');
-            var location = locationEl && locationEl.textContent ? locationEl.textContent.trim() : '';
+            // Get location - look for "X miles away" pattern
+            var location = '';
+            var locationMatch = cardText.match(/(\d+)\s*miles?\s*away/i);
+            if (locationMatch) {
+              location = locationMatch[0];
+            }
 
             // Get photo
-            var imgEl = card.querySelector('img');
-            var photo = imgEl ? (imgEl.src || imgEl.dataset.src || '') : '';
+            var photo = '';
+            var imgEl = card.querySelector('img[src*="cloudfront"], img[src*="petfinder"]');
+            if (imgEl) {
+              photo = (imgEl as any).src || '';
+            }
 
-            if (url && name) {
+            if (url && name && name !== 'Loading...') {
               results.push({ url: url, name: name, breed: breed, age: age, gender: gender, location: location, photo: photo });
             }
           });
 
           return results;
         });
+
+        console.log(`Found ${petData.length} pets on page ${pageNum}`);
 
         if (petData.length === 0) {
           console.log(`No pets found on page ${pageNum}, stopping`);
@@ -143,10 +198,10 @@ export class PetfinderScraper extends BaseScraper {
           const sourceIdMatch = data.url.match(/\/pet\/[^/]+-(\d+)/);
           const sourceId = sourceIdMatch ? sourceIdMatch[1] : `pf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-          // Parse location
-          const locationMatch = data.location.match(/([^,]+),\s*(\w{2})/);
-          const city = locationMatch ? locationMatch[1].trim() : null;
-          const state = locationMatch ? normalizeState(locationMatch[2]) : null;
+          // Parse location - might be "X miles away" which doesn't give us city/state
+          // We'll leave these null and could enhance later
+          const city = null;
+          const state = null;
 
           const pet: ScrapedPet = {
             source_id: sourceId,
@@ -183,14 +238,10 @@ export class PetfinderScraper extends BaseScraper {
           pets.push(pet);
         }
 
-        // Check for next page
-        const hasNextPage = await page.evaluate(function() {
-          var nextBtn = document.querySelector('[data-test="pagination-next"]:not([disabled]), a[aria-label="Next"]');
-          return !!nextBtn;
-        });
-
-        if (!hasNextPage) {
-          console.log(`No more pages after page ${pageNum}`);
+        // For now, limit to first page to test - pagination on this site is complex
+        // The URL ?page=X approach may work, but let's verify data extraction first
+        if (pageNum >= 3) {
+          console.log('Limiting to 3 pages for now');
           break;
         }
 
