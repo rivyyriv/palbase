@@ -152,10 +152,10 @@ export class AdoptAPetScraper extends BaseScraper {
           processedUrls.add(href);
 
           // Find the card container - go up the DOM tree
-          var card = link;
+          var card: Element = link;
           for (var i = 0; i < 5; i++) {
             if (card.parentElement) {
-              card = card.parentElement;
+              card = card.parentElement as Element;
               // Stop if we find something that looks like a card
               if (card.className && (
                 card.className.includes('card') || 
