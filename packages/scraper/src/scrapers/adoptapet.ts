@@ -84,15 +84,40 @@ export class AdoptAPetScraper extends BaseScraper {
         timeout: 60000,
       });
 
-      // Wait for pet results to load
-      await page.waitForSelector('a[href*="/pet/"], .pet-card, [class*="PetCard"]', {
-        timeout: 15000,
-      }).catch(() => {});
+      // Wait for content to load - AdoptAPet is also a JS-rendered site
+      console.log('Waiting for pet listings to load...');
+      
+      await page.waitForFunction(
+        () => {
+          // Look for any links that look like pet profiles
+          const petLinks = document.querySelectorAll('a[href*="/pet/"], a[href*="adopt"]');
+          const hasContent = document.body.textContent && document.body.textContent.length > 5000;
+          return petLinks.length > 0 || hasContent;
+        },
+        { timeout: 20000 }
+      ).catch(() => {
+        console.log('Timeout waiting for content, will try to extract anyway');
+      });
 
-      // Scroll to load more pets
+      // Extra wait for JS rendering
+      await this.sleep(3000);
+
+      // Debug: Log what we can see on the page
+      const pageInfo = await page.evaluate(() => {
+        return {
+          title: document.title,
+          bodyLength: document.body.textContent?.length || 0,
+          allLinks: document.querySelectorAll('a').length,
+          petLinks: document.querySelectorAll('a[href*="/pet/"]').length,
+          images: document.querySelectorAll('img').length,
+        };
+      });
+      console.log('Page info:', pageInfo);
+
+      // Scroll to load more pets (if lazy loading)
       let previousHeight = 0;
       let scrollAttempts = 0;
-      const maxScrollAttempts = 5;
+      const maxScrollAttempts = 3;
 
       while (scrollAttempts < maxScrollAttempts) {
         const currentHeight = await page.evaluate(function() { return document.body.scrollHeight; });
@@ -103,74 +128,121 @@ export class AdoptAPetScraper extends BaseScraper {
 
         previousHeight = currentHeight;
         await page.evaluate(function() { window.scrollTo(0, document.body.scrollHeight); });
-        await new Promise(r => setTimeout(r, 1500));
+        await this.sleep(2000);
         scrollAttempts++;
       }
 
       // Extract pet data from the page
       const petData = await page.evaluate(function() {
         var results = [];
+        var processedUrls = new Set();
 
-        // Find all pet links
-        var petLinks = document.querySelectorAll('a[href*="/pet/"]');
+        // Try multiple approaches to find pets
 
-        petLinks.forEach(function(link) {
-          var href = (link as any).href;
-          if (!href || results.some(function(r) { return r.url === href; })) return;
+        // Approach 1: Find all links that might be pet profiles
+        var allLinks = document.querySelectorAll('a');
+        
+        allLinks.forEach(function(link) {
+          var href = (link as any).href || '';
+          
+          // Skip if not a pet link or already processed
+          if (!href.includes('/pet/') && !href.includes('adopt-a-')) return;
+          if (href.includes('/s/adopt-a-')) return; // Skip search page links
+          if (processedUrls.has(href)) return;
+          processedUrls.add(href);
 
-          // Find the card container
-          var card = link.closest('[class*="pet"], [class*="card"], article') || link.parentElement;
-          if (!card) return;
+          // Find the card container - go up the DOM tree
+          var card = link;
+          for (var i = 0; i < 5; i++) {
+            if (card.parentElement) {
+              card = card.parentElement;
+              // Stop if we find something that looks like a card
+              if (card.className && (
+                card.className.includes('card') || 
+                card.className.includes('pet') ||
+                card.className.includes('item') ||
+                card.className.includes('result')
+              )) {
+                break;
+              }
+            }
+          }
 
-          // Get pet name from various possible locations
-          var nameEl = card.querySelector('h2, h3, [class*="name"], [class*="title"]');
-          var name = nameEl && nameEl.textContent ? nameEl.textContent.trim() : '';
+          // Get pet name
+          var name = '';
+          var nameEl = card.querySelector('h2, h3, h4, [class*="name"], [class*="title"]');
+          if (nameEl && nameEl.textContent) {
+            name = nameEl.textContent.trim();
+          }
+          // Try the link text itself
+          if (!name && link.textContent) {
+            var linkText = link.textContent.trim();
+            if (linkText.length > 1 && linkText.length < 50 && !linkText.includes('View') && !linkText.includes('More')) {
+              name = linkText;
+            }
+          }
 
-          // Get breed
-          var breedEl = card.querySelector('[class*="breed"]');
-          var breed = breedEl && breedEl.textContent ? breedEl.textContent.trim() : '';
-
-          // Get details text
+          // Get all text in the card for parsing
           var cardText = card.textContent || '';
+
+          // Get breed - look for common breed patterns
+          var breed = '';
+          var breedPatterns = [
+            /(?:Breed|Mix):\s*([A-Za-z\s&\/]+)/i,
+            /((?:Labrador|Golden|German|Pit Bull|Chihuahua|Beagle|Bulldog|Poodle|Husky|Boxer|Terrier|Shepherd|Retriever|Spaniel|Collie|Dachshund|Shih Tzu|Yorkshire)[A-Za-z\s&\/]*)/i
+          ];
+          for (var p = 0; p < breedPatterns.length; p++) {
+            var match = cardText.match(breedPatterns[p]);
+            if (match) {
+              breed = match[1].trim();
+              break;
+            }
+          }
 
           // Extract age
           var age = '';
           var ageMatch = cardText.match(/(\d+)\s*(year|yr|month|mo|week|wk)/i);
           if (ageMatch) {
             age = ageMatch[0];
-          } else if (cardText.includes('Puppy') || cardText.includes('Kitten')) {
+          } else if (cardText.toLowerCase().includes('puppy') || cardText.toLowerCase().includes('kitten')) {
             age = 'Baby';
-          } else if (cardText.includes('Young')) {
+          } else if (cardText.toLowerCase().includes('young')) {
             age = 'Young';
-          } else if (cardText.includes('Adult')) {
+          } else if (cardText.toLowerCase().includes('adult')) {
             age = 'Adult';
-          } else if (cardText.includes('Senior')) {
+          } else if (cardText.toLowerCase().includes('senior')) {
             age = 'Senior';
           }
 
           // Extract gender
           var gender = '';
-          if (cardText.includes('Female')) gender = 'Female';
-          else if (cardText.includes('Male')) gender = 'Male';
+          if (cardText.includes('Female') || cardText.includes('female')) gender = 'Female';
+          else if (cardText.includes('Male') || cardText.includes('male')) gender = 'Male';
 
           // Extract size
           var size = '';
-          if (cardText.includes('Extra Large') || cardText.includes('XL')) size = 'X-Large';
-          else if (cardText.includes('Large')) size = 'Large';
-          else if (cardText.includes('Medium')) size = 'Medium';
-          else if (cardText.includes('Small')) size = 'Small';
+          var lowerText = cardText.toLowerCase();
+          if (lowerText.includes('extra large') || lowerText.includes('x-large') || lowerText.includes('xl')) size = 'X-Large';
+          else if (lowerText.includes('large')) size = 'Large';
+          else if (lowerText.includes('medium')) size = 'Medium';
+          else if (lowerText.includes('small')) size = 'Small';
 
           // Get photo
+          var photo = '';
           var img = card.querySelector('img');
-          var photo = img ? (img.src || img.dataset.src || '') : '';
+          if (img) {
+            photo = (img as any).src || (img as any).dataset?.src || '';
+          }
 
-          if (href && name) {
+          if (href && name && name.length > 1) {
             results.push({ url: href, name: name, breed: breed, age: age, gender: gender, size: size, photo: photo });
           }
         });
 
         return results;
       });
+      
+      console.log(`Extracted ${petData.length} pets from page`);
 
       // Process each pet
       for (const data of petData) {
@@ -217,7 +289,14 @@ export class AdoptAPetScraper extends BaseScraper {
         pets.push(pet);
       }
     } finally {
-      await page.close();
+      // Safely close the page, handling case where browser connection may have dropped
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch (closeError) {
+        console.log('Page already closed or browser disconnected');
+      }
     }
 
     return pets;
