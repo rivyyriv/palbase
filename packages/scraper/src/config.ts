@@ -16,6 +16,12 @@ export const config = {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
 
+  // Browserless.io (cloud browser)
+  browserless: {
+    token: process.env.BROWSERLESS_TOKEN || '',
+    endpoint: process.env.BROWSERLESS_ENDPOINT || 'wss://chrome.browserless.io',
+  },
+
   // Scraper settings
   scraper: {
     // Cron schedule: Default 3 AM daily

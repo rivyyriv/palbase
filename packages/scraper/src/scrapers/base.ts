@@ -31,21 +31,32 @@ export abstract class BaseScraper {
    * Initialize the scraper (browser, robots.txt, etc.)
    */
   async initialize(): Promise<void> {
-    // Launch browser - use PUPPETEER_EXECUTABLE_PATH if set (Railway/Docker)
-    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    // Use Browserless.io if token is provided, otherwise launch local Chrome
+    const browserlessToken = config.browserless.token;
     
-    this.browser = await puppeteer.launch({
-      headless: true,
-      ...(executablePath && { executablePath }),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--single-process',
-      ],
-    });
+    if (browserlessToken) {
+      // Connect to Browserless.io cloud browser
+      const browserWSEndpoint = `${config.browserless.endpoint}?token=${browserlessToken}`;
+      console.log(`Connecting to Browserless.io...`);
+      this.browser = await puppeteer.connect({ browserWSEndpoint });
+      console.log(`Connected to Browserless.io`);
+    } else {
+      // Fallback to local Chrome (for local development)
+      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      console.log(`Launching local browser...`);
+      this.browser = await puppeteer.launch({
+        headless: true,
+        ...(executablePath && { executablePath }),
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--single-process',
+        ],
+      });
+    }
 
     // Fetch and parse robots.txt
     try {
@@ -62,7 +73,12 @@ export abstract class BaseScraper {
    */
   async cleanup(): Promise<void> {
     if (this.browser) {
-      await this.browser.close();
+      // For Browserless.io, disconnect instead of close to avoid terminating the remote browser
+      if (config.browserless.token) {
+        this.browser.disconnect();
+      } else {
+        await this.browser.close();
+      }
       this.browser = null;
     }
   }
