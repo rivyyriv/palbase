@@ -22,6 +22,11 @@ export const config = {
     endpoint: process.env.BROWSERLESS_ENDPOINT || 'wss://chrome.browserless.io',
   },
 
+  // RescueGroups.org API (primary data source)
+  rescueGroups: {
+    apiKey: process.env.RESCUEGROUPS_API_KEY || '',
+  },
+
   // Scraper settings
   scraper: {
     // Cron schedule: Default 3 AM daily

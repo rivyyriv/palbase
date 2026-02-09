@@ -33,6 +33,7 @@ export const GENDER_OPTIONS: { value: PetGender; label: string }[] = [
 ];
 
 export const SOURCE_OPTIONS: { value: ScrapeSource; label: string }[] = [
+  { value: 'rescuegroups', label: 'RescueGroups' },
   { value: 'petfinder', label: 'Petfinder' },
   { value: 'adoptapet', label: 'Adopt-a-Pet' },
   { value: 'aspca', label: 'ASPCA' },

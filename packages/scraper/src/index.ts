@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     const scrapeMatch = url.pathname.match(/^\/api\/scrape\/(\w+)$/);
     if (scrapeMatch && req.method === 'POST') {
       const source = scrapeMatch[1] as ScrapeSource;
-      const validSources = ['petfinder', 'adoptapet', 'aspca', 'bestfriends', 'petsmart'];
+      const validSources = ['rescuegroups', 'petfinder', 'adoptapet', 'aspca', 'bestfriends', 'petsmart'];
       
       if (!validSources.includes(source)) {
         res.writeHead(400, { 'Content-Type': 'application/json' });

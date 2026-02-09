@@ -10,6 +10,7 @@ import {
   markStalePetsAsRemoved,
   createScrapeError,
 } from '../db';
+import { RescueGroupsFetcher } from '../scrapers/rescuegroups';
 import { PetfinderScraper } from '../scrapers/petfinder';
 import { AdoptAPetScraper } from '../scrapers/adoptapet';
 import { ASPCAScraper } from '../scrapers/aspca';
@@ -71,8 +72,16 @@ export function getScrapeQueue(): Queue<ScrapeJobData, ScrapeJobResult> {
   return scrapeQueue;
 }
 
-function getScraperForSource(source: ScrapeSource): BaseScraper {
+interface Scraper {
+  initialize(): Promise<void>;
+  cleanup(): Promise<void>;
+  scrape(): Promise<import('../scrapers/base').ScrapeResult>;
+}
+
+function getScraperForSource(source: ScrapeSource): Scraper {
   switch (source) {
+    case 'rescuegroups':
+      return new RescueGroupsFetcher();
     case 'petfinder':
       return new PetfinderScraper();
     case 'adoptapet':
@@ -279,7 +288,9 @@ export async function addScrapeJob(
 export async function addAllScrapeJobs(
   triggeredBy: 'cron' | 'manual' | string
 ): Promise<void> {
-  const sources: ScrapeSource[] = ['petfinder', 'adoptapet', 'aspca', 'bestfriends', 'petsmart'];
+  // RescueGroups is the primary data source (API-based, reliable)
+  // Browser-based scrapers are disabled due to bot detection blocking
+  const sources: ScrapeSource[] = ['rescuegroups'];
   
   for (const source of sources) {
     await addScrapeJob(source, triggeredBy);

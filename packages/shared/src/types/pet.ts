@@ -22,7 +22,8 @@ export type ScrapeSource =
   | 'adoptapet'
   | 'aspca'
   | 'bestfriends'
-  | 'petsmart';
+  | 'petsmart'
+  | 'rescuegroups';
 
 export interface Pet {
   id: string;
