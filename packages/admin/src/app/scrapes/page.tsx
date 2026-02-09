@@ -30,8 +30,8 @@ export default async function ScrapesPage() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Scrape History</h1>
-        <p className="text-gray-600">View all scrape job history and logs</p>
+        <h1 className="text-2xl font-bold text-gray-900">Sync History</h1>
+        <p className="text-gray-600">View all data sync history and logs</p>
       </div>
 
       <div className="card">
@@ -110,7 +110,7 @@ export default async function ScrapesPage() {
           </div>
         ) : (
           <div className="p-12 text-center text-gray-500">
-            No scrape jobs found. Run a scrape from the dashboard.
+            No syncs found. Click &quot;Sync Now&quot; from the dashboard to fetch pets.
           </div>
         )}
       </div>

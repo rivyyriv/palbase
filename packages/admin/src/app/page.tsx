@@ -50,7 +50,7 @@ export default async function DashboardPage() {
           color="blue"
         />
         <StatsCard
-          title="Recent Scrapes"
+          title="Recent Syncs"
           value={stats.recentScrapes.length.toString()}
           icon={Activity}
           color="orange"

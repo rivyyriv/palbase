@@ -1,10 +1,9 @@
 import { config, validateConfig } from './config';
-import { startWorker, stopWorker, addAllScrapeJobs, addScrapeJob } from './jobs/queue';
+import { runSync } from './sync';
 import { startScheduler, stopScheduler } from './scheduler';
-import type { ScrapeSource } from '@palbase/shared';
 
 async function main(): Promise<void> {
-  console.log('Starting Palbase Scraper Service...');
+  console.log('Starting Palbase Sync Service...');
 
   // Validate configuration
   try {
@@ -14,20 +13,16 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Start the job worker
-  startWorker();
-
-  // Start the scheduler
+  // Start the scheduler (daily cron)
   startScheduler();
 
-  console.log(`Scraper service running on port ${config.port}`);
+  console.log(`Sync service running on port ${config.port}`);
   console.log('Press Ctrl+C to stop');
 
   // Handle graceful shutdown
   const shutdown = async () => {
     console.log('\nShutting down...');
     stopScheduler();
-    await stopWorker();
     console.log('Shutdown complete');
     process.exit(0);
   };
@@ -35,17 +30,20 @@ async function main(): Promise<void> {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
+  // Track sync state
+  let isSyncing = false;
+
   // Simple HTTP server for health checks and manual triggers
   const http = await import('http');
-  
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://localhost:${config.port}`);
-    
+
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    
+
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
@@ -59,39 +57,64 @@ async function main(): Promise<void> {
       return;
     }
 
-    // Trigger all scrapes
-    if (url.pathname === '/api/scrape/all' && req.method === 'POST') {
-      try {
-        await addAllScrapeJobs('manual');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'All scrape jobs queued' }));
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to queue jobs' }));
-      }
-      return;
-    }
-
-    // Trigger single source scrape
-    const scrapeMatch = url.pathname.match(/^\/api\/scrape\/(\w+)$/);
-    if (scrapeMatch && req.method === 'POST') {
-      const source = scrapeMatch[1] as ScrapeSource;
-      const validSources = ['rescuegroups', 'petfinder', 'adoptapet', 'aspca', 'bestfriends', 'petsmart'];
-      
-      if (!validSources.includes(source)) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Invalid source: ${source}` }));
+    // Trigger sync (manual)
+    if (url.pathname === '/api/sync' && req.method === 'POST') {
+      if (isSyncing) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Sync already in progress' }));
         return;
       }
 
-      try {
-        const job = await addScrapeJob(source, 'manual');
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: `Scrape job queued for ${source}`, jobId: job.id }));
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to queue job' }));
+      // Run sync in background
+      isSyncing = true;
+      runSync('manual')
+        .then((result) => {
+          console.log('Manual sync completed:', result);
+        })
+        .catch((error) => {
+          console.error('Manual sync failed:', error);
+        })
+        .finally(() => {
+          isSyncing = false;
+        });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Sync started' }));
+      return;
+    }
+
+    // Backward compatibility: /api/scrape/all and /api/scrape/rescuegroups both trigger sync
+    if (
+      (url.pathname === '/api/scrape/all' || url.pathname === '/api/scrape/rescuegroups') &&
+      req.method === 'POST'
+    ) {
+      if (isSyncing) {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Sync already in progress' }));
+        return;
       }
+
+      isSyncing = true;
+      runSync('manual')
+        .then((result) => {
+          console.log('Manual sync completed:', result);
+        })
+        .catch((error) => {
+          console.error('Manual sync failed:', error);
+        })
+        .finally(() => {
+          isSyncing = false;
+        });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Sync started' }));
+      return;
+    }
+
+    // Sync status
+    if (url.pathname === '/api/sync/status' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ syncing: isSyncing }));
       return;
     }
 

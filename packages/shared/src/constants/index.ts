@@ -41,6 +41,11 @@ export const SOURCE_OPTIONS: { value: ScrapeSource; label: string }[] = [
   { value: 'petsmart', label: 'PetSmart Charities' },
 ];
 
+// Active sources (only RescueGroups API is active)
+export const ACTIVE_SOURCE_OPTIONS: { value: ScrapeSource; label: string }[] = [
+  { value: 'rescuegroups', label: 'RescueGroups' },
+];
+
 export const US_STATES: { value: string; label: string }[] = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },

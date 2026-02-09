@@ -24,7 +24,7 @@ export function RecentScrapes({ scrapes }: RecentScrapesProps) {
   return (
     <div className="card">
       <div className="border-b border-gray-200 px-6 py-4">
-        <h2 className="text-lg font-semibold text-gray-900">Recent Scrape Jobs</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Recent Syncs</h2>
       </div>
 
       {scrapes.length > 0 ? (
@@ -84,7 +84,7 @@ export function RecentScrapes({ scrapes }: RecentScrapesProps) {
         </div>
       ) : (
         <div className="p-12 text-center text-gray-500">
-          No scrape jobs yet. Run a scrape to see results here.
+          No syncs yet. Click &quot;Sync Now&quot; to fetch pets from RescueGroups.
         </div>
       )}
     </div>

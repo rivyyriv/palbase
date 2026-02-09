@@ -7,8 +7,21 @@ import {
   normalizeBreed,
   normalizeDescription,
 } from '../normalizers/pet';
-import type { ScrapeSource, ShelterInsert, PetSpecies } from '@palbase/shared';
-import type { ScrapedPet, ScrapeResult } from './base';
+import type { PetInsert, ScrapeSource, ShelterInsert, PetSpecies } from '@palbase/shared';
+
+export interface ScrapedPet extends Omit<PetInsert, 'source'> {
+  shelter_source_id?: string;
+}
+
+export interface SyncResult {
+  pets: ScrapedPet[];
+  shelters: ShelterInsert[];
+  errors: Array<{
+    type: string;
+    message: string;
+    url?: string;
+  }>;
+}
 
 /**
  * RescueGroups.org API-based data fetcher.
@@ -44,10 +57,10 @@ export class RescueGroupsFetcher {
   /**
    * Fetch available pets from RescueGroups API
    */
-  async scrape(): Promise<ScrapeResult> {
+  async scrape(): Promise<SyncResult> {
     const pets: ScrapedPet[] = [];
     const shelters: ShelterInsert[] = [];
-    const errors: ScrapeResult['errors'] = [];
+    const errors: SyncResult['errors'] = [];
 
     const speciesToFetch: Array<{ view: string; species: PetSpecies }> = [
       { view: 'dogs', species: 'dog' },

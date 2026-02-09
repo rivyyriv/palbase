@@ -1,42 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Loader2 } from 'lucide-react';
-import { SOURCE_OPTIONS } from '@palbase/shared';
+import { Play, Loader2, RefreshCw } from 'lucide-react';
 
-const SCRAPER_API_URL = process.env.NEXT_PUBLIC_SCRAPER_URL || 'http://localhost:4000';
+const SYNC_API_URL = process.env.NEXT_PUBLIC_SCRAPER_URL || 'http://localhost:4000';
 
 export function ScrapeActions() {
-  const [isLoading, setIsLoading] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const triggerScrape = async (source: string | 'all') => {
-    setIsLoading(source);
+  const triggerSync = async () => {
+    setIsLoading(true);
     setMessage(null);
 
     try {
-      const endpoint = source === 'all' 
-        ? `${SCRAPER_API_URL}/api/scrape/all`
-        : `${SCRAPER_API_URL}/api/scrape/${source}`;
-
-      const response = await fetch(endpoint, { method: 'POST' });
+      const response = await fetch(`${SYNC_API_URL}/api/sync`, { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`Scrape job queued: ${data.message || 'Success'}`);
+        setMessage(`Sync started: ${data.message || 'Fetching pets from RescueGroups...'}`);
       } else {
-        setMessage(`Error: ${data.error || 'Failed to queue scrape'}`);
+        setMessage(`Error: ${data.error || 'Failed to start sync'}`);
       }
     } catch (error) {
-      setMessage('Error: Could not connect to scraper service');
+      setMessage('Error: Could not connect to sync service');
     } finally {
-      setIsLoading(null);
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="card p-6">
-      <h2 className="mb-4 text-lg font-semibold text-gray-900">Scrape Controls</h2>
+      <h2 className="mb-4 text-lg font-semibold text-gray-900">Sync Controls</h2>
       
       {message && (
         <div className={`mb-4 rounded-lg p-3 text-sm ${
@@ -50,34 +45,22 @@ export function ScrapeActions() {
 
       <div className="flex flex-wrap gap-3">
         <button
-          onClick={() => triggerScrape('all')}
-          disabled={isLoading !== null}
+          onClick={triggerSync}
+          disabled={isLoading}
           className="btn-primary btn-md gap-2"
         >
-          {isLoading === 'all' ? (
+          {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Play className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" />
           )}
-          Run All Scrapes
+          Sync Now
         </button>
-
-        {SOURCE_OPTIONS.map((source) => (
-          <button
-            key={source.value}
-            onClick={() => triggerScrape(source.value)}
-            disabled={isLoading !== null}
-            className="btn-outline btn-md gap-2"
-          >
-            {isLoading === source.value ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            {source.label}
-          </button>
-        ))}
       </div>
+
+      <p className="mt-3 text-xs text-gray-500">
+        Fetches adoptable pets from RescueGroups.org (6,200+ shelters). Runs automatically daily at 3 AM.
+      </p>
     </div>
   );
 }
