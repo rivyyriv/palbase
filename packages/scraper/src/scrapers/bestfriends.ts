@@ -136,7 +136,13 @@ export class BestFriendsScraper extends BaseScraper {
       }
 
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
 
     return pets;
@@ -309,7 +315,13 @@ export class BestFriendsScraper extends BaseScraper {
     try {
       return await this.scrapePetPage(page, url);
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
   }
 }

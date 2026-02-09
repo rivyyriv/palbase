@@ -35,9 +35,9 @@ export abstract class BaseScraper {
     const browserlessToken = config.browserless.token;
     
     if (browserlessToken) {
-      // Connect to Browserless.io cloud browser
-      const browserWSEndpoint = `${config.browserless.endpoint}?token=${browserlessToken}`;
-      console.log(`Connecting to Browserless.io...`);
+      // Connect to Browserless.io cloud browser with stealth mode to bypass bot detection
+      const browserWSEndpoint = `${config.browserless.endpoint}?token=${browserlessToken}&stealth`;
+      console.log(`Connecting to Browserless.io (stealth mode)...`);
       this.browser = await puppeteer.connect({ browserWSEndpoint });
       console.log(`Connected to Browserless.io`);
     } else {
@@ -175,7 +175,13 @@ export abstract class BaseScraper {
       console.error(`Error fetching ${url}:`, error);
       throw error;
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
   }
 

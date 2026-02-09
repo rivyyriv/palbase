@@ -432,7 +432,13 @@ export class AdoptAPetScraper extends BaseScraper {
       console.error(`Error parsing AdoptAPet pet page ${url}:`, error);
       return null;
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
   }
 }

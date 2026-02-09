@@ -201,7 +201,13 @@ export class ASPCAScraper extends BaseScraper {
         pets.push(pet);
       }
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
 
     return pets;
@@ -308,7 +314,13 @@ export class ASPCAScraper extends BaseScraper {
       console.error(`Error parsing ASPCA pet page ${url}:`, error);
       return null;
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
   }
 }

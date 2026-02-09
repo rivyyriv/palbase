@@ -202,7 +202,13 @@ export class PetSmartScraper extends BaseScraper {
         }
       }
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
 
     return pets;
@@ -328,7 +334,13 @@ export class PetSmartScraper extends BaseScraper {
       console.error(`Error parsing PetSmart pet page ${url}:`, error);
       return null;
     } finally {
-      await page.close();
+      try {
+        if (!page.isClosed()) {
+          await page.close();
+        }
+      } catch {
+        console.log('Page already closed');
+      }
     }
   }
 }
